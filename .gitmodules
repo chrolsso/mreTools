@@ -1,1 +1,4 @@
 
+[submodule "seriate"]
+	path = seriate
+	url = git@github.com:jonathanweiss1/seriate.git
