@@ -28,6 +28,9 @@ folder_path : string
 dimensions : np.ndarray
     list of dimensions in which the slices are ordered. x and y should be included at the start, magnitude / phase should not be included
 
+type : string
+    "complex" if the image is complex, "real" if the image is real
+
 Returns
 --------
 np.ndarray
@@ -35,15 +38,22 @@ np.ndarray
 
 
 """
-def load(folder_path, dimensions):
+def load(folder_path, dimensions, type="complex"):
     files = get_files_in_folder(folder_path)
     files = sorted(files)
-    img = np.empty((dimensions[0], dimensions[1], dimensions[2:].prod()), dtype=np.complex64)
-    for i in range(len(files) // 2):
-        ds = dicom.dcmread(os.path.join(folder_path, files[i]))
-        img.real[:, :, i] = ds.pixel_array * ds.RescaleSlope + ds.RescaleIntercept
-        ds = dicom.dcmread(os.path.join(folder_path, files[i+len(files) // 2]))
-        img.imag[:, :, i] = ds.pixel_array * ds.RescaleSlope + ds.RescaleIntercept
+    img = None
+    if type == "complex":
+        img = np.empty((dimensions[0], dimensions[1], dimensions[2:].prod()), dtype=np.complex64)
+        for i in range(len(files) // 2):
+            ds = dicom.dcmread(os.path.join(folder_path, files[i]))
+            img.real[:, :, i] = ds.pixel_array * ds.RescaleSlope + ds.RescaleIntercept
+            ds = dicom.dcmread(os.path.join(folder_path, files[i+len(files) // 2]))
+            img.imag[:, :, i] = ds.pixel_array * ds.RescaleSlope + ds.RescaleIntercept
+    else:
+        img = np.empty((dimensions[0], dimensions[1], dimensions[2:].prod()), dtype=np.float64)
+        for i in range(len(files)):
+            ds = dicom.dcmread(os.path.join(folder_path, files[i]))
+            img[:, :, i] = ds.pixel_array * ds.RescaleSlope + ds.RescaleIntercept
     return img.reshape(dimensions)
 
 """Saves the image in the given folder path in a matlab file as img
