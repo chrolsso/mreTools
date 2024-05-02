@@ -2,6 +2,7 @@ import os
 import scipy
 import numpy as np
 import pydicom as dicom
+import nibabel as nib
 
 """Get a list of all files in a folder
 
@@ -55,6 +56,21 @@ def load(folder_path, dimensions, type="complex"):
             ds = dicom.dcmread(os.path.join(folder_path, files[i]))
             img[:, :, i] = ds.pixel_array * ds.RescaleSlope + ds.RescaleIntercept
     return img.reshape(dimensions)
+
+"""Wraps the given pixel data in a nibabel image object
+
+Parameters
+----------
+pixel_data : np.ndarray
+    2D numpy array with pixel data
+
+Returns
+-------
+nibabel.nifti1.Nifti1Image
+    Nifti1Image object containing the pixel data
+"""
+def to_nibabel(pixel_data):
+    return nib.Nifti1Image(pixel_data, np.eye(4))
 
 """Saves the image in the given folder path in a matlab file as img
 Takes image in mayo format (slices, components, timesteps) and saves it in bioqic format (slices, timesteps, components, frequencies)
