@@ -3,6 +3,7 @@ import xarray as xr
 import numpy as np
 import nibabel as nib
 from ..utils import print_if, as_xarray
+from .dataset import MREDataset
 
 class MatlabSample(object):
     '''
@@ -63,8 +64,10 @@ class MatlabSample(object):
 
     def segment_regions(self, verbose=True):
         """Add mask data"""
+        self.bin_var = None
+        self.anat_var = None
         print_if(verbose, 'Segmenting spatial regions')
-        u = (self.arrays.wave.mean(['frequency', 'component']))
+        u = (self.arrays.wave.mean(['timesteps', 'frequency', 'component']))
         if self.mask_file is not None:
             print_if(verbose, 'Adding mask from file')
             perc_mask=self.file_path_mask 
@@ -77,8 +80,14 @@ class MatlabSample(object):
             self.arrays['spatial_region'] = mask_mat
             print(self.arrays.spatial_region)
             self.arrays = self.arrays.assign_coords(spatial_region=self.arrays.spatial_region)  #additional dimension added
+        else:
+            mask = np.ones(u.shape, dtype=bool)
+            mask = as_xarray(mask, like=u)
+            mask.name = 'spatial_region'
+            self.arrays['spatial_region'] = mask
 
         if self.bin_mask_file is not None:
+            self.bin_var = 'img_seg_filled'
             print_if(verbose, 'Adding binary mask')
             perc_fill=self.file_path_filled
             mask_fill= scipy.io.loadmat(perc_fill) #DOVREBBE ESSERE  (80,80,40) DIRETTAMENTE DA MATLAB
@@ -104,28 +113,9 @@ class MatlabSample(object):
         mu.name = 'elastogram'  # CREATES mre (mu)
         self.arrays['mu'] = mu #mu is a NumPy array
 
-    # def select_data_subset(self, frequency, xyz_slice, verbose=True):
-    #     self.arrays, ndim = select_data_subset(
-    #         self.arrays, frequency, xyz_slice, verbose=verbose
-    #     )
-
-    # def spatial_downsample(self, factor, verbose=True):
-    #     print_if(verbose, 'Spatial downsampling')
-    #     factors = {d: factor for d in self.arrays.field.spatial_dims}
-    #     arrays = self.arrays.coarsen(boundary='trim', **factors).mean()
-    #     arrays['spatial_region'] = self.arrays.spatial_region.coarsen(
-    #         boundary='trim', **factors
-    #     ).max()
-    #     self.arrays = arrays
-
-    # def view(self, *args, **kwargs):
-    #     if not args:
-    #         args = self.arrays.keys()
-    #     for arg in args:
-    #         viewer = XArrayViewer(self.arrays[arg], **kwargs)
-
-    # def to_dataset(self):
-    #     return MREDataset.from_bioqic(self)
+    def to_dataset(self):
+        print("to dataset") 
+        return MREDataset.from_matlab(self)
     
     def _load_mat_file(mat_file, verbose=False):
         '''
