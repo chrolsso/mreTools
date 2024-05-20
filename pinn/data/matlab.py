@@ -2,6 +2,7 @@ import scipy, sys
 import xarray as xr
 import numpy as np
 import nibabel as nib
+import matplotlib.pyplot as plt
 from ..utils import print_if, as_xarray
 from .dataset import MREDataset
 
@@ -35,7 +36,13 @@ class MatlabSample(object):
         """Load the image from the initialized .mat file"""
         data, rev_axes = MatlabSample._load_mat_file(self.mat_file, verbose)
 
+        plt.imshow(data['magnitude'][:, :, 24, 0, 0, 0])
+        plt.show()
+        plt.imshow(data['phase'][:, :, 24, 0, 0, 0])
+        plt.show()
+
         wave = np.multiply(data['magnitude'], np.exp(1j * data['phase'])) # construct complex image from magnitude and phase
+        wave = wave[:, :, :, 0, :, :] # remove time dimension
         wave = self.add_metadata(wave)
         self.arrays = xr.Dataset(dict(wave=wave))
 
@@ -43,17 +50,17 @@ class MatlabSample(object):
 
     def add_metadata(self, array):
         "Adds info on resolution, spatial dimensions, frequencies, and components to the array"
-        dims = ['x', 'y', 'z', 'timesteps', 'component', 'frequency']
+        dims = ['x', 'y', 'z', 'component', 'frequency']
         coords = {
             'frequency': np.array([self.freq]), # Hz
             'x': np.arange(array.shape[0])  * self.resolution[0],
             'y': np.arange(array.shape[1]) * self.resolution[1],
             'z': np.arange(array.shape[2])  * self.resolution[2],
             'component': ['x', 'y', 'z'], # is this really the correct order???
-            'timesteps': np.arange(array.shape[3]),
+            # 'timesteps': np.arange(array.shape[3]),
         }
         array = xr.DataArray(array, dims=dims, coords=coords)
-        return array.transpose('timesteps', 'frequency', 'x', 'y', 'z', 'component')
+        return array.transpose('frequency', 'x', 'y', 'z', 'component')
 
     def preprocess(self, storage_mod_file, loss_mod_file, verbose=True):
         """Add masks and ground truth data"""
@@ -67,7 +74,7 @@ class MatlabSample(object):
         self.bin_var = None
         self.anat_var = None
         print_if(verbose, 'Segmenting spatial regions')
-        u = (self.arrays.wave.mean(['timesteps', 'frequency', 'component']))
+        u = (self.arrays.wave.mean(['frequency', 'component']))
         if self.mask_file is not None:
             print_if(verbose, 'Adding mask from file')
             perc_mask=self.file_path_mask 
@@ -100,9 +107,16 @@ class MatlabSample(object):
     def create_elastogram(self, verbose=True):
         """Add ground truth data"""
         print_if(verbose, 'Creating ground truth elastogram')
-        u=self.arrays.wave.mean(['component', 'timesteps'])
+        u=self.arrays.wave.mean(['component'])
 
-        complex_array = np.multiply(nib.load(self.storage_mod_file).get_fdata(), np.exp(1j * nib.load(self.loss_mod_file).get_fdata()))
+        # complex_array = np.multiply(nib.load(self.storage_mod_file).get_fdata(), np.exp(1j * nib.load(self.loss_mod_file).get_fdata()))
+        storage = nib.load(self.storage_mod_file).get_fdata()
+        loss = nib.load(self.loss_mod_file).get_fdata()
+        plt.imshow(storage[:, :, 24])
+        plt.show()
+        plt.imshow(loss[:, :, 24])
+        plt.show()
+        complex_array = storage + 1j * loss
         print_if(verbose, 'complex array shape:')
         print_if(verbose, complex_array.shape) #(80, 160, 160, 3, 1)
         mu_mat = complex_array

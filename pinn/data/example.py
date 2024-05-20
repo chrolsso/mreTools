@@ -2,6 +2,7 @@ import pathlib
 import numpy as np
 import xarray as xr
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from ..utils import print_if, as_xarray, delete_folder_contents
 from ..extendxarray import fields
@@ -217,6 +218,7 @@ def load_xarray_file(nc_file, verbose=True):
             array['part'] = xr.DataArray(['real', 'imag'], dims='part')
         real = array.sel(part='real')
         imag = array.sel(part='imag')
+        print(real.shape)
         return real + 1j * imag
     else:
         return array
