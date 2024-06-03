@@ -35,12 +35,9 @@ class MatlabSample(object):
     def load_mat(self, verbose=True): 
         """Load the image from the initialized .mat file"""
         data, rev_axes = MatlabSample._load_mat_file(self.mat_file, verbose)
-
-        plt.imshow(data['magnitude'][:, :, 24, 0, 0, 0])
-        plt.show()
-        plt.imshow(data['phase'][:, :, 24, 0, 0, 0])
-        plt.show()
-
+        # move all image values so that the smallest value is 0
+        # data['magnitude'] = data['magnitude'] - np.min(data['magnitude'])
+        # data['phase'] = data['phase'] - np.min(data['phase'])
         wave = np.multiply(data['magnitude'], np.exp(1j * data['phase'])) # construct complex image from magnitude and phase
         wave = wave[:, :, :, 0, :, :] # remove time dimension
         wave = self.add_metadata(wave)
@@ -66,8 +63,8 @@ class MatlabSample(object):
         """Add masks and ground truth data"""
         self.storage_mod_file = storage_mod_file
         self.loss_mod_file = loss_mod_file
-        self.segment_regions(verbose) # after this         self.arrays['spatial_region'] = mask
         self.create_elastogram(verbose)   ## after this         self.arrays['mu'] = mu
+        self.segment_regions(verbose) # after this         self.arrays['spatial_region'] = mask
 
     def segment_regions(self, verbose=True):
         """Add mask data"""
@@ -103,7 +100,11 @@ class MatlabSample(object):
             mask_fill.name = 'binary_region'
             self.arrays['binary_region'] = mask_fill
             self.arrays = self.arrays.assign_coords(spatial_region=self.arrays.spatial_region)  #additional dimension added 
-
+        else:
+            self.arrays['binary_region'] = np.abs(self.arrays['mu']) > 0
+            self.arrays = self.arrays.assign_coords(spatial_region=self.arrays.spatial_region)  #additional dimension added
+            self.bin_var = '>0'
+            
     def create_elastogram(self, verbose=True):
         """Add ground truth data"""
         print_if(verbose, 'Creating ground truth elastogram')

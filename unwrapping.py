@@ -2,6 +2,7 @@ import numpy as np
 import scipy
 import nibabel as nib
 from fsl import wrappers
+import matplotlib.pyplot as plt
 import os
 from . import utils
 
@@ -119,7 +120,14 @@ def spatialUnwrapping(image, method = "fsl", preprocessing = lambda x: x):
             print("FSL unwrapping requires complex image as input, returning original image")
             return image
         # scale phase to 2pi range
+        print("imag", image.imag.min(), image.imag.max())
         image.imag = image.imag * (2*np.pi) / (4*np.pi)
+        print("imag", image.imag.min(), image.imag.max())
+        print("real", image.real.min(), image.real.max())
+        plt.imshow(image.real)
+        plt.show()
+        plt.imshow(image.imag)
+        plt.show()
         magn = utils.to_nibabel(image.real)
         phase = utils.to_nibabel(image.imag)
         # fslpy is unfortunately just a wrapper to the FSL command line tools, so we need to save the image to disk and load it back

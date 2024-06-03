@@ -65,6 +65,7 @@ class MREExample(object):
         mre  = load_xarray_file(example_dir / 'mre.nc',  verbose)   #../data/BIOQIC/fem_box/100/mre.nc
         mre_mask  = load_xarray_file(example_dir / 'mre_mask.nc',  verbose) #../data/BIOQIC/fem_box/100/mre_mask.nc
         if anat:
+            print('anat')
             anatomy = load_xarray_file(example_dir / 'anat.nc', verbose) #../data/BIOQIC/fem_box/100/anat.nc
             anat_mask = load_xarray_file(example_dir / 'anat_mask.nc', verbose)#../data/BIOQIC/fem_box/100/anat_mask.nc
             if 'sequence' in anatomy.coords:
@@ -75,6 +76,10 @@ class MREExample(object):
             else:
                 return MREExample(example_id, wave, mre, mre_mask, anat=anat)
         else:
+            if bin_mask:
+                print('loading binary mask')
+                binary_mask = load_xarray_file(example_dir / 'bin_mask.nc', verbose)
+                return MREExample(example_id, wave, mre, mre_mask, bin_mask=binary_mask)
             return MREExample(example_id, wave, mre, mre_mask)
 
     def save_xarrays(self, xarray_dir, verbose=True):   #Converts the xarray_dir to a pathlib.Path object.
