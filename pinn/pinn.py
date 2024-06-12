@@ -59,10 +59,9 @@ class MREPINN(torch.nn.Module):  # #torch.nn.Module is base class for all neural
         u_pred = u_pred * self.u_scale + self.u_loc  # renormalises
 
         mu_a_pred = self.mu_pinn(x)
-        mu_pred, a_pred = (
-            mu_a_pred[:,:len(self.mu_loc)],
-            mu_a_pred[:,len(self.mu_loc):]
-        )
+        mu_pred = mu_a_pred[:,:len(self.mu_loc)]
+        a_pred = mu_a_pred[:,len(self.mu_loc):]
+
         mu_pred = mu_pred * self.mu_scale + self.mu_loc
         a_pred = a_pred * self.a_scale + self.a_loc
 
@@ -160,46 +159,3 @@ class PINN(torch.nn.Module):  #torch.nn.Module is base class for all neural netw
 
             with torch.no_grad():
                 module.weight.uniform_(-w_std, w_std)
-    """
-    def __init__(self, example, omega, activ_fn='ss', **kwargs):
-        super().__init__()
-
-        metadata = example.metadata
-        x_center = torch.tensor(metadata['center'].wave, dtype=torch.float32)
-        x_extent = torch.tensor(metadata['extent'].wave, dtype=torch.float32)
-
-        stats = example.describe()
-        self.u_loc = torch.tensor(stats['mean'].wave)
-        self.u_scale = torch.tensor(stats['std'].wave)
-        self.mu_loc = torch.tensor(stats['mean'].mre)
-        self.mu_scale = torch.tensor(stats['std'].mre)
-        self.omega = torch.tensor(omega)
-
-        if 'anat' in example:
-            self.a_loc = torch.tensor(stats['mean'].anat)
-            self.a_scale = torch.tensor(stats['std'].anat)
-        else:
-            self.a_loc = torch.zeros(0)
-            self.a_scale = torch.zeros(0)
-
-        self.input_loc = x_center
-        self.input_scale = x_extent
-
-        self.u_pinn = PINN(
-            n_input=len(self.input_loc),
-            n_output=len(self.u_loc),
-            complex_output=example.wave.field.is_complex,
-            polar_output=False,
-            activ_fn=activ_fn[0],
-            **kwargs
-        )
-        self.mu_pinn = PINN(
-            n_input=len(self.input_loc),
-            n_output=len(self.mu_loc) + len(self.a_loc),
-            complex_output=example.mre.field.is_complex,
-            polar_output=True,
-            activ_fn=activ_fn[1],
-            **kwargs
-        )
-        self.regularizer = None
-        """

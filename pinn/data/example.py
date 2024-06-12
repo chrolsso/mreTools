@@ -38,6 +38,21 @@ class MREExample(object):
             example['anat'] = arrays['anat']
             example['anat_mask'] = arrays['spatial_region']
         return example
+    
+    @classmethod
+    def from_bioqic(cls, bioqic, frequency):
+        example_id = str(frequency.item())
+        arrays = bioqic.arrays.sel(frequency=frequency)
+        example = MREExample(
+            example_id,
+            wave=arrays['wave'],
+            mre=arrays['mu'],
+            mre_mask=arrays['spatial_region']
+        )
+        if bioqic.anat_var is not None:
+            example['anat'] = arrays['anat']
+            example['anat_mask'] = arrays['spatial_region']
+        return example
 
     @classmethod #the first parametre is the class itself, not one istance. A class method is associated with the class itself, rather than an instance of the class.
     def from_patient(cls, patient):

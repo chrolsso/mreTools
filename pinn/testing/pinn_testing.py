@@ -7,7 +7,48 @@ import pickle
 from ..training.callbacks import PeriodicCallback
 from .. import visual
 
+class LeanTestEvaluator(PeriodicCallback):
+    """Lean TestEvaluator that only calculates some small statistics.
+    """
+
+    def __init__(
+        self,
+        test_every=1000,
+        save_every=10000,
+        save_prefix=None
+    ):
+        assert save_every % test_every == 0
+        super().__init__(period=test_every)
+        self.save_prefix = save_prefix
+        self.save_every = save_every
+        if save_prefix: # create output subdirectories
+            save_dir, save_name = os.path.split(save_prefix)
+            weight_dir = os.path.join(save_dir, 'weights')
+            os.makedirs(weight_dir, exist_ok=True)
+            self.weight_prefix = os.path.join(weight_dir, save_name)
+
+    @property
+    def iteration(self):
+        try:
+            return self.model.train_state.step
+        except AttributeError:
+            return 0
+
+    def on_period_begin(self):
+        save_model = (self.iteration % self.save_every == 0)
+        print("Testing ...")
+        self.test(save_model)
+        print("Testing done.")
+    
+    def test(self, save_model=True):
+        dataset, arrays = self.model.test()
+        if save_model and self.save_prefix: # save model state
+            self.model.save(self.weight_prefix + '_model')
+        return arrays
+
 class TestEvaluator(PeriodicCallback):
+    """Original TestEvaluator that takes a lot of time and needs too much memory.
+    """
 
     def __init__(
         self,
@@ -247,5 +288,6 @@ def power_spectral_density(u, n_bins=10):
 
     # take mean across spatial frequency bins
     bins = np.linspace(0, n_bins, n_bins + 1, endpoint=True)
-    ps = ps.groupby_bins('spatial_frequency', bins=bins).mean(...)
+    ps_bins = ps.groupby_bins('spatial_frequency', bins=bins)
+    ps = ps_bins.mean(...)
     return ps #.values

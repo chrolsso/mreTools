@@ -27,6 +27,16 @@ class MREDataset(object):
             examples[ex.example_id] = ex
         return MREDataset(example_ids, examples)
     
+    @classmethod
+    def from_bioqic(cls, bioqic):
+        examples = {}
+        example_ids = []
+        for frequency in bioqic.arrays.frequency:
+            ex = MREExample.from_bioqic(bioqic, frequency)
+            example_ids.append(ex.example_id)
+            examples[ex.example_id] = ex
+        return MREDataset(example_ids, examples)
+    
     def save_xarrays(self, xarray_dir, verbose=True):
         for xid in self.example_ids:  # saves each example at a time, example_ids # contains frequencies of each xarray
             self.examples[xid].save_xarrays(xarray_dir, verbose)

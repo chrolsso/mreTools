@@ -283,7 +283,7 @@ def create_func_from_data(data):
         x = x_T[:ndim].T
         y = interpolate(x)
         y_T = y.reshape(len(x), -1).T
-        return np.ascontiguousarray(y_T)
+        return np.ascontiguousarray(y_T, dtype="complex_")
 
     return func
 
