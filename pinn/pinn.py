@@ -7,7 +7,7 @@ from .generic import get_activ_fn
 # Convert non-numeric elements to None
 class MREPINN(torch.nn.Module):  # #torch.nn.Module is base class for all neural network modules-->Your models should also subclass this class.
     
-    def __init__(self, example, omega, activ_fn='ss', **kwargs):
+    def __init__(self, example, omega, activ_fn='ss', siren_init=True, **kwargs):
         super().__init__()  
         metadata = example.metadata
         metadata['center'] =  metadata['center'].astype('float32') 
@@ -38,6 +38,7 @@ class MREPINN(torch.nn.Module):  # #torch.nn.Module is base class for all neural
             complex_output=example.wave.field.is_complex, #whether the output of the neural network should be treated as complex numbers or not.
             polar_output=False, #whether the output should be represented in polar coordinates or not. Polar coordinates consist of a magnitude (or amplitude) and a phase angle
             activ_fn=activ_fn[0],
+            siren_weight_init=siren_init,
             **kwargs
         )
         self.mu_pinn = PINN(
@@ -46,6 +47,7 @@ class MREPINN(torch.nn.Module):  # #torch.nn.Module is base class for all neural
             complex_output=example.mre.field.is_complex,
             polar_output=True,
             activ_fn=activ_fn[1],
+            siren_weight_init=siren_init,
             **kwargs
         )
         self.regularizer = None
@@ -80,7 +82,8 @@ class PINN(torch.nn.Module):  #torch.nn.Module is base class for all neural netw
         dense=True,
         polar_input=False,
         complex_output=False,
-        polar_output=False
+        polar_output=False,
+        siren_weight_init=True
     ):
         assert n_layers > 0
         super().__init__()
@@ -111,7 +114,10 @@ class PINN(torch.nn.Module):  #torch.nn.Module is base class for all neural netw
         self.complex_output = complex_output
         self.polar_output = polar_output
 
-        self.init_weights()
+        if siren_weight_init:
+            self.init_weights_siren()
+        else:
+            self.init_weights_random()
 
     def forward(self, x):
         '''
@@ -143,7 +149,7 @@ class PINN(torch.nn.Module):  #torch.nn.Module is base class for all neural netw
         else:
             return self.output(x)
 
-    def init_weights(self, c=6):
+    def init_weights_siren(self, c=6):
         '''
         SIREN weight initialization.
         '''
@@ -159,3 +165,12 @@ class PINN(torch.nn.Module):  #torch.nn.Module is base class for all neural netw
 
             with torch.no_grad():
                 module.weight.uniform_(-w_std, w_std)
+
+    def init_weights_random(self):
+        '''
+        Random weight initialization.
+        '''
+        for module in self.children():
+            if hasattr(module, 'weight'):
+                torch.nn.init.xavier_normal_(module.weight)
+                torch.nn.init.zeros_(module.bias)
