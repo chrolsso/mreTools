@@ -4,6 +4,7 @@ import xarray as xr
 import torch
 import deepxde
 import time
+import matplotlib.pyplot as plt
 
 from ..utils import minibatch, as_xarray
 from ..pde import laplacian
@@ -308,3 +309,41 @@ class MREPINNModel(deepxde.Model):
         fem.name = 'FEM'
 
         return 'train', (a, u, lu, pde, mu, direct, fem)
+    
+    def plot_loss(self, name="sum", mode="train"):
+        """Plots the loss history of the requested loss function.
+            The plots can be shown with plt.show() or saved with plt.savefig().
+            Parameters
+            ----------
+            name : str
+                Name of the loss function to plot. Options are "sum", "u", "mu", "a", "pde".
+            mode : str
+                Mode of the loss function to plot. Options are "train" and "test".
+        """
+        # check that name is only one of "sum", "u", "mu", "a", "pde"
+        assert name in ["sum", "u", "mu", "a", "pde"], f"Invalid name: {name}"
+        assert mode in ["train", "test"], f"Invalid mode: {mode}"
+
+        loss = self.losshistory.loss_train if mode == "train" else self.losshistory.loss_test
+        epochs = self.losshistory.steps
+
+        if name == "sum":
+            ltrain_array = np.array(loss)
+            sum_ltrain = np.sum(ltrain_array, axis=1)
+            sum_list_ltrain = sum_ltrain.tolist()
+            plt.plot(epochs, sum_list_ltrain, label='Training Loss sum')
+        else:
+            index = 0
+            if name == "u":
+                index = 0
+            elif name == "mu":
+                index = 1
+            elif name == "anat":
+                index = 2
+            elif name == "pde":
+                index = 3
+            single_loss = [inner_list[index] for inner_list in loss]
+            plt.plot(epochs, single_loss, label=f'Training Loss {name}')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.legend()
