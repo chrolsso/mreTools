@@ -72,7 +72,7 @@ def to_nibabel(pixel_data):
     """
     return nib.Nifti1Image(pixel_data, np.eye(4))
 
-def to_bioqic(file_path, pixel_data, spacing, frequencies):
+def to_bioqic(file_path, pixel_data, spacing, frequencies, time=True):
     """Saves the image in the given folder path in a matlab file as img
     Takes image in mayo format (slices, components, timesteps) and saves it in bioqic format (slices, timesteps, components, frequencies)
 
@@ -90,12 +90,16 @@ def to_bioqic(file_path, pixel_data, spacing, frequencies):
     frequencies : np.ndarray
         numpy array with frequencies in Hz in the same order as in pixel_data
 
+    time : bool
+        set to false if input image has no time dimension
     """
     img = dict()
-    pixel_data = pixel_data.swapaxes(3, 4)
+    # add empty dimensions for frequencies and time if not given
+    if not time:
+        pixel_data = np.expand_dims(pixel_data, 3)
     pixel_data = np.expand_dims(pixel_data, 5)
-    img["magnitude"] = pixel_data.real
-    img["phase"] = pixel_data.imag
+    img["magnitude"] = np.abs(pixel_data)
+    img["phase"] = np.angle(pixel_data)
     img["info"] = dict()
     img["info"]["dx_m"] = spacing[0] / 1000
     img["info"]["dy_m"] = spacing[1] / 1000

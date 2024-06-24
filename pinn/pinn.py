@@ -7,7 +7,7 @@ from .generic import get_activ_fn
 # Convert non-numeric elements to None
 class MREPINN(torch.nn.Module):  # #torch.nn.Module is base class for all neural network modules-->Your models should also subclass this class.
     
-    def __init__(self, example, omega, activ_fn='ss', siren_init=True, **kwargs):
+    def __init__(self, example, omega, activ_fn='ss', siren_init=True, u_dropout=False, mu_dropout=False, **kwargs):
         super().__init__()  
         metadata = example.metadata
         metadata['center'] =  metadata['center'].astype('float32') 
@@ -31,6 +31,12 @@ class MREPINN(torch.nn.Module):  # #torch.nn.Module is base class for all neural
 
         self.input_loc = x_center #torch.Size([3]) tensor([0.0395, 0.0495, 0.0045], device='cuda:0'
         self.input_scale = x_extent #torch.Size([3])tensor([0.0800, 0.1000, 0.0100], device='cuda:0')
+        u_droupout_rate = 0
+        mu_dropout_rate = 0
+        if u_dropout:
+            u_dropout_rate = 5
+        if mu_dropout:
+            mu_dropout_rate = 5
 
         self.u_pinn = PINN(
             n_input=len(self.input_loc), #3
@@ -71,7 +77,33 @@ class MREPINN(torch.nn.Module):  # #torch.nn.Module is base class for all neural
 
 
 class PINN(torch.nn.Module):  #torch.nn.Module is base class for all neural network modules-->Your models should also subclass this class.
-
+    """
+    Physics-Informed Neural Network (PINN) model.
+    Parameters
+    ----------
+    n_input : int
+        Number of input features.
+    n_output : int
+        Number of output features.
+    n_layers : int
+        Number of hidden layers.
+    n_hidden : int
+        Number of hidden units per layer.
+    activ_fn : str
+        Activation function for hidden layers.
+    dense : bool
+        Whether to use dense connections between layers.
+    polar_input : bool
+        Whether the input should be represented in polar coordinates.
+    complex_output : bool
+        Whether the output should be treated as complex numbers.
+    polar_output : bool
+        Whether the output should be represented in polar coordinates.
+    siren_weight_init : bool
+        Whether to use SIREN weight initialization.
+    dropout_layer_rate : float
+        Rate in which to use dropout layers between dense layers
+    """
     def __init__(
         self,
         n_input,
@@ -83,7 +115,8 @@ class PINN(torch.nn.Module):  #torch.nn.Module is base class for all neural netw
         polar_input=False,
         complex_output=False,
         polar_output=False,
-        siren_weight_init=True
+        siren_weight_init=True,
+        dropout_layer_rate=0
     ):
         assert n_layers > 0
         super().__init__()
@@ -95,7 +128,8 @@ class PINN(torch.nn.Module):  #torch.nn.Module is base class for all neural netw
           #It initializes hidden layers (self.hiddens) based on the specified parameters using linear transformations (torch.nn.Linear).
 
         for i in range(n_layers - 1):
-            hidden = torch.nn.Linear(n_input, n_hidden) #layer
+
+            hidden = torch.nn.Dropout(p=0.5) if (dropout_layer_rate > 0 and i % dropout_layer_rate == 0) else torch.nn.Linear(n_input, n_hidden)
             if dense:
                 n_input += n_hidden
             else:

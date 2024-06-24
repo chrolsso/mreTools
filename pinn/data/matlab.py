@@ -39,7 +39,8 @@ class MatlabSample(object):
         # data['magnitude'] = data['magnitude'] - np.min(data['magnitude'])
         # data['phase'] = data['phase'] - np.min(data['phase'])
         wave = np.multiply(data['magnitude'], np.exp(1j * data['phase'])) # construct complex image from magnitude and phase
-        wave = wave[:, :, :, 0, :, :] # remove time dimension
+        if (len(wave.shape) == 6):
+            wave = wave[:, :, :, 0, :, :] # remove time dimension
         wave = self.add_metadata(wave)
         self.arrays = xr.Dataset(dict(wave=wave))
 
