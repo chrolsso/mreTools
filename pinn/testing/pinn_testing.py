@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import pickle
+import matplotlib.pyplot as plt
 
 from ..training.callbacks import PeriodicCallback
 from .. import visual
@@ -15,12 +16,14 @@ class LeanTestEvaluator(PeriodicCallback):
         self,
         test_every=1000,
         save_every=10000,
-        save_prefix=None
+        save_prefix=None,
+        intermediate_image_save_path=None
     ):
         assert save_every % test_every == 0
         super().__init__(period=test_every)
         self.save_prefix = save_prefix
         self.save_every = save_every
+        self.intermediate_image_save_path=intermediate_image_save_path
         if save_prefix: # create output subdirectories
             save_dir, save_name = os.path.split(save_prefix)
             weight_dir = os.path.join(save_dir, 'weights')
@@ -37,13 +40,26 @@ class LeanTestEvaluator(PeriodicCallback):
     def on_period_begin(self):
         save_model = (self.iteration % self.save_every == 0)
         print("Testing ...")
-        self.test(save_model)
+        print(self.test(save_model))
         print("Testing done.")
     
     def test(self, save_model=True):
         dataset, arrays = self.model.test()
         if save_model and self.save_prefix: # save model state
             self.model.save(self.weight_prefix + '_model')
+        if not self.intermediate_image_save_path is None:
+            fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+            axes[0].imshow(np.abs(arrays[3][0, :, :, 24]))
+            axes[0].set_title("pde")
+            axes[1].imshow(np.abs(arrays[4][0, :, :, 24]))
+            axes[1].set_title("mu")
+            axes[2].imshow(np.abs(arrays[1][0, :, :, 24, 2]))
+            axes[2].set_title("u")
+            plt.savefig(self.intermediate_image_save_path)
+
+            np.save(f"{self.intermediate_image_save_path}/long_running_mu_{self.iteration}.npy", arrays[4])
+            np.save(f"{self.intermediate_image_save_path}/long_running_u_{self.iteration}.npy", arrays[1])
+            np.save(f"{self.intermediate_image_save_path}/long_running_pde_{self.iteration}.npy", arrays[3])
         return arrays
 
 class TestEvaluator(PeriodicCallback):
