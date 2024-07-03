@@ -5,3 +5,6 @@
 [submodule "MRI-Phase-Unwrapping"]
 	path = MRI-Phase-Unwrapping
 	url = https://github.com/mahletA/MRI-Phase-Unwrapping.git
+[submodule "PINNacle"]
+	path = PINNacle
+	url = https://github.com/i207M/PINNacle.git
