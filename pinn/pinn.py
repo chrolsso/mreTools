@@ -31,12 +31,12 @@ class MREPINN(torch.nn.Module):  # #torch.nn.Module is base class for all neural
 
         self.input_loc = x_center #torch.Size([3]) tensor([0.0395, 0.0495, 0.0045], device='cuda:0'
         self.input_scale = x_extent #torch.Size([3])tensor([0.0800, 0.1000, 0.0100], device='cuda:0')
-        u_droupout_rate = 0
+        u_dropout_rate = 0
         mu_dropout_rate = 0
         if u_dropout:
-            u_dropout_rate = 5
+            u_dropout_rate = 3
         if mu_dropout:
-            mu_dropout_rate = 5
+            mu_dropout_rate = 3
 
         self.u_pinn = PINN(
             n_input=len(self.input_loc), #3
@@ -45,6 +45,7 @@ class MREPINN(torch.nn.Module):  # #torch.nn.Module is base class for all neural
             polar_output=False, #whether the output should be represented in polar coordinates or not. Polar coordinates consist of a magnitude (or amplitude) and a phase angle
             activ_fn=activ_fn[0],
             siren_weight_init=siren_init,
+            dropout_layer_rate=u_dropout_rate,
             **kwargs
         )
         self.mu_pinn = PINN(
@@ -54,6 +55,7 @@ class MREPINN(torch.nn.Module):  # #torch.nn.Module is base class for all neural
             polar_output=True,
             activ_fn=activ_fn[1],
             siren_weight_init=siren_init,
+            dropout_layer_rate=mu_dropout_rate,
             **kwargs
         )
         self.regularizer = None
@@ -124,16 +126,21 @@ class PINN(torch.nn.Module):  #torch.nn.Module is base class for all neural netw
         if polar_input:
             n_input += 3
 
+        self.dropout_layer_rate = dropout_layer_rate
         self.hiddens = []
           #It initializes hidden layers (self.hiddens) based on the specified parameters using linear transformations (torch.nn.Linear).
 
         for i in range(n_layers - 1):
-
-            hidden = torch.nn.Dropout(p=0.5) if (dropout_layer_rate > 0 and i % dropout_layer_rate == 0) else torch.nn.Linear(n_input, n_hidden)
-            if dense:
-                n_input += n_hidden
+            hidden = None
+            if (dropout_layer_rate > 0 and not i == 0 and i % dropout_layer_rate == 0):
+                hidden = torch.nn.Dropout(p=0.5)
+                n_input = n_input
             else:
-                n_input = n_hidden
+                hidden =torch.nn.Linear(n_input, n_hidden)
+                if dense:
+                    n_input += n_hidden
+                else:
+                    n_input = n_hidden
             self.hiddens.append(hidden)
             self.add_module(f'hidden{i}', hidden)
         #It initializes the output layer (self.output) using linear transformation based on the number of input features.
@@ -172,7 +179,7 @@ class PINN(torch.nn.Module):  #torch.nn.Module is base class for all neural netw
                 y = torch.sin(hidden(x))
             else:
                 y = self.activ_fn(hidden(x))
-            if self.dense:
+            if self.dense and not (self.dropout_layer_rate > 0 and not i == 0 and i % self.dropout_layer_rate == 0):    # dense and current layer is not a dropout layer
                 x = torch.cat([x, y], dim=1)
             else:
                 x = y

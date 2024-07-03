@@ -31,6 +31,10 @@ class MatlabSample(object):
     @property
     def wave_var(self):
         return 'u_ft'
+    
+    @property
+    def anat_var(self):
+        return None
 
     def load_mat(self, verbose=True): 
         """Load the image from the initialized .mat file"""
@@ -43,6 +47,11 @@ class MatlabSample(object):
             wave = wave[:, :, :, 0, :, :] # remove time dimension
         wave = self.add_metadata(wave)
         self.arrays = xr.Dataset(dict(wave=wave))
+
+        if self.anat_var is not None:
+            anat = data[self.anat_var].T if rev_axes else data[self.anat_var]
+            anat = self.add_metadata(anat)
+            self.arrays['anat'] = anat
 
         print_if(verbose, self.arrays)
 

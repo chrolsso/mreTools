@@ -44,6 +44,7 @@ class MREPINNData(deepxde.data.Data):
         self.pde_loss=0
         self.pde_pesii=[0]
         self.pde_weight=pde_init_weight
+
     def losses(self, targets, outputs, loss_fn, inputs, model, aux=None):
         x, = inputs
         u_true, mu_true, a_true = (
@@ -212,6 +213,7 @@ class MREPINNModel(deepxde.Model):
         u_pred, mu_pred, a_pred, lu_pred, f_trac, f_body = \
             self.predict(*inputs, batch_size=self.data.n_points)
 
+
         # get ground truth xarrays
         u_true = self.data.example.wave
         mu_true = self.data.example.mre
@@ -267,6 +269,11 @@ class MREPINNModel(deepxde.Model):
         ], dim=lu_dim)
         lu.name = 'Laplacian'
 
+
+        # mu_diff: Difference between the predicted stiffness and the "gold standard" stiffness from mayo calculation
+        # pde_grad: - (traction_forces + body_forces) * predicted_displacement * 2
+        # pde_diff: Difference between the predicted stiffness and the pde_gradient
+        
         pde_vars = ['pde_grad', 'pde_diff', 'mu_diff']
         pde_dim = xr.DataArray(pde_vars, dims=['variable'])
         pde_grad = -((f_trac + f_body) * lu_pred * 2)
@@ -326,12 +333,17 @@ class MREPINNModel(deepxde.Model):
 
         loss = self.losshistory.loss_train if mode == "train" else self.losshistory.loss_test
         epochs = self.losshistory.steps
+        return_loss = None
+
+        if len(epochs) == 0:
+            return [], []
 
         if name == "sum":
             ltrain_array = np.array(loss)
             sum_ltrain = np.sum(ltrain_array, axis=1)
             sum_list_ltrain = sum_ltrain.tolist()
             plt.plot(epochs, sum_list_ltrain, label='Training Loss sum')
+            return_loss = sum_list_ltrain
         else:
             index = 0
             if name == "u":
@@ -344,6 +356,9 @@ class MREPINNModel(deepxde.Model):
                 index = 3
             single_loss = [inner_list[index] for inner_list in loss]
             plt.plot(epochs, single_loss, label=f'Training Loss {name}')
+            return_loss = single_loss
         plt.xlabel('Epochs')
         plt.ylabel('Loss')
         plt.legend()
+
+        return epochs, return_loss
