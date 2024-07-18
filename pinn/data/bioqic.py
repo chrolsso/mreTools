@@ -4,10 +4,13 @@ import numpy as np
 import xarray as xr
 import skimage.draw
 import scipy.io
+from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from ..utils import print_if, as_xarray
 from .dataset import MREDataset
 from ..visual import XArrayViewer
+from mreTools import unwrapping
 
 
 class BIOQICSample(object):
@@ -24,32 +27,52 @@ class BIOQICSample(object):
 
     @property
     def mat_file(self):
-        return self.download_dir / self.mat_base
-
-    def download(self, verbose=True):
-        url = f'https://bioqic-apps.charite.de/DownloadSamples?file={self.mat_base}'
-        print_if(verbose, f'Downloading {url}')
-        self.download_dir.mkdir(exist_ok=True)
-        urllib.request.urlretrieve(url, self.mat_file)
+        return self.download_dir
 
     def load_mat(self, verbose=True):
         data, rev_axes = load_mat_file(self.mat_file, verbose)
+        print(data["info"]["dx_m"][0, 0])
+        print(data["info"]["dy_m"][0, 0])
+        print(data["info"]["dz_m"][0, 0])
+        mag = data["magnitude"].T if rev_axes else data["magnitude"]
+        ph = data["phase"].T if rev_axes else data["phase"]
+        wave = np.array(mag) * np.exp(1j * np.array(ph))
+        dims = wave.shape
 
-        wave = data[self.wave_var].T if rev_axes else data[self.wave_var]
+        # spatial unwrapping
+        original_complex = wave.reshape((wave.shape[0] * wave.shape[1] * wave.shape[2] * wave.shape[3], wave.shape[4], wave.shape[5]))
+        print(original_complex.shape)
+        unwrapped_phase = np.empty((wave.shape[4], wave.shape[5], original_complex.shape[0]), dtype=np.float64)
+        print(unwrapped_phase.shape)
+        for i in tqdm(range(original_complex.shape[0])):
+            unwrapped_phase[:,:,i] = unwrapping.spatialUnwrapping(original_complex[i, :, :], method="fsl")
+        original_complex = np.moveaxis(original_complex, 0, -1)
+        wave = np.abs(original_complex) * np.exp(1j * unwrapped_phase)
+        wave = np.moveaxis(wave, -1, 0)
+        print(wave.shape)
+        wave = wave.reshape(dims)
+        print(wave.shape)
+        plt.imshow(np.abs(wave[4, 1, 4, 12, :, :]))
+        plt.title("1")
+        plt.show()
+
+        # frequency selection
+        wave = unwrapping.frequencySelection(wave.reshape(dims), 2)
+        plt.imshow(np.abs(wave[4, 1, 12, :, :]))
+        plt.show()
         wave = self.add_metadata(wave)
         self.arrays = xr.Dataset(dict(wave=wave))
 
-        if self.anat_var is not None:
-            anat = data[self.anat_var].T if rev_axes else data[self.anat_var]
-            anat = self.add_metadata(anat)
-            self.arrays['anat'] = anat
+        # if self.anat_var is not None:
+        #     anat = data[self.anat_var].T if rev_axes else data[self.anat_var]
+        #     anat = self.add_metadata(anat)
+        #     self.arrays['anat'] = anat
 
         print_if(verbose, self.arrays)
 
-    def preprocess(self, verbose=True):
-        self.segment_regions(verbose)
+    def preprocess(self, mask, verbose=True):
+        self.segment_regions(mask, verbose)
         self.create_elastogram(verbose)
-        self.preprocess_wave_image(verbose)
 
     def select_data_subset(self, frequency, xyz_slice, verbose=True):
         self.arrays, ndim = select_data_subset(
@@ -87,67 +110,68 @@ class BIOQICFEMBox(BIOQICSample):
     def anat_var(self):
         return None
 
-    @property
-    def wave_var(self):
-        return 'u_ft'
-
     def add_metadata(self, array):
-        resolution = 1e-3 # meters
+        resolution = 0.0015 # meters
         dims = ['frequency', 'component', 'z', 'x', 'y']
         coords = {
-            'frequency': np.arange(50, 101, 10), # Hz
-            'x': np.arange(80)  * resolution,
-            'y': np.arange(100) * resolution,
-            'z': np.arange(10)  * resolution,
+            'frequency': np.array([30, 40, 50, 60, 70, 80, 90, 100]), # Hz
+            'x': np.arange(128)  * resolution,
+            'y': np.arange(80) * resolution,
+            'z': np.arange(25)  * resolution,
             'component': ['y', 'x', 'z'],
         }
         array = xr.DataArray(array, dims=dims, coords=coords)
         return array.transpose('frequency', 'x', 'y', 'z', 'component')
 
-    def segment_regions(self, verbose=True):
+    def segment_regions(self, mask, verbose=True):
+        '''
+        Mask is supposed to be a 3D array with shape (x, y, z). The mask will be converted to binary.
+        '''
         
         print_if(verbose, 'Segmenting spatial regions')
         u = self.arrays.wave.mean(['frequency', 'component'])
 
-        matrix_mask = np.ones((80, 100), dtype=int)
-        disk_mask = np.zeros((80, 100), dtype=int)
-        disks = [
-            skimage.draw.disk(center=(39.8, 73.6), radius=10),
-            skimage.draw.disk(center=(39.8, 49.6), radius=5),
-            skimage.draw.disk(center=(39.8, 31.8), radius=3),
-            skimage.draw.disk(center=(39.8, 18.6), radius=2),
-        ]
-        disk_mask[disks[0]] = 1
-        disk_mask[disks[1]] = 2
-        disk_mask[disks[2]] = 3
-        disk_mask[disks[3]] = 4
+        mask_fake = np.ones(u.shape, dtype=bool)
+        mask_fake = as_xarray(mask_fake, like=u)
+        mask_fake.name = 'spatial_region'
+        self.arrays['spatial_region'] = mask_fake
 
-        mask = (matrix_mask + disk_mask)[:,:,np.newaxis]
-        mask = as_xarray(np.broadcast_to(mask, u.shape), like=u)
-        mask.name = 'spatial_region'
-        self.arrays['spatial_region'] = mask
+        mask_copy = np.copy(mask)
+        mask_copy[mask_copy > 1] = 1
+        mask_copy = as_xarray(mask_copy, like=u)
+        mask_copy.name = 'binary_region'
+        self.arrays['binary_region'] = mask_copy
         self.arrays = self.arrays.assign_coords(
             spatial_region=self.arrays.spatial_region
         )
 
-    def create_elastogram(self, verbose=True):
+    def create_elastogram(self, mask, stiffness, verbose=True):
+        '''
+        This function creates a ground truth elastogram from the mask and stiffness values. ONLY the magnitude of this ground truth is correct.
+        
+        Arguments:
+        mask: 3D array with shape (x, y, z) containing the spatial region segmentation.
+        stiffness: A dictionary with the keys 'matrix', 'roi1', 'roi2', 'roi3', 'roi4' that has the corresponding stiffness values in Pa.
+        '''
 
         print_if(verbose, 'Creating ground truth elastogram')
         spatial_region = self.arrays.spatial_region
         wave = self.arrays.wave
 
         # ground truth physical parameters
-        mu = np.array(
-            [0, 3e3, 10e3, 10e3, 10e3, 10e3]
-        )[spatial_region][np.newaxis,...,]
+        mu = np.copy(mask)
+        mu = mu.astype(np.uint16)
+        mu[mask == 10] = stiffness['matrix']
+        mu[mask == 1] = stiffness['roi1']
+        mu[mask == 2] = stiffness['roi2']
+        mu[mask == 3] = stiffness['roi3']
+        mu[mask == 4] = stiffness['roi4']
 
-        axes = tuple(range(1, mu.ndim))
-        omega = 2 * np.pi * wave.frequency
-        omega = np.expand_dims(omega, axis=axes)
-
-        # Voigt model
-        eta = 1 # Pa·s
-        mu = mu + 1j * omega * eta
+        mu = mu * np.exp(1j)
+        mu = np.expand_dims(mu, axis=0)
+        mu = np.repeat(mu, 8, axis=0)
+        print("like", wave.mean(['component']).shape)
+        print("mu", mu.shape)
         mu = as_xarray(mu, like=wave.mean(['component']))
         mu.name = 'elastogram'
         self.arrays['mu'] = mu

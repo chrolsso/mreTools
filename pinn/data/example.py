@@ -49,9 +49,7 @@ class MREExample(object):
             mre=arrays['mu'],
             mre_mask=arrays['spatial_region']
         )
-        if bioqic.anat_var is not None:
-            example['anat'] = arrays['anat']
-            example['anat_mask'] = arrays['spatial_region']
+        example['bin_mask'] = arrays['binary_region']
         return example
 
     @classmethod #the first parametre is the class itself, not one istance. A class method is associated with the class itself, rather than an instance of the class.

@@ -48,12 +48,19 @@ class MatlabSample(object):
         wave = self.add_metadata(wave)
         self.arrays = xr.Dataset(dict(wave=wave))
 
-        if self.anat_var is not None:
-            anat = data[self.anat_var].T if rev_axes else data[self.anat_var]
-            anat = self.add_metadata(anat)
-            self.arrays['anat'] = anat
+        # if self.anat_var is not None:
+        #     anat = data[self.anat_var].T if rev_axes else data[self.anat_var]
+        #     anat = self.add_metadata(anat)
+        #     self.arrays['anat'] = anat
 
         print_if(verbose, self.arrays)
+
+    def add_anatomical(self, anat_file):
+        anat_data = nib.load(anat_file).get_fdata()
+        u=self.arrays.wave.mean(['component'])
+        anat = as_xarray(anat_data, like=u)
+        anat.name = 'anatomy'
+        self.arrays['anat'] = anat
 
     def add_metadata(self, array):
         "Adds info on resolution, spatial dimensions, frequencies, and components to the array"

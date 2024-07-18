@@ -1,9 +1,3 @@
-ENV:
-
-fenics-dolfinx=0.6.0 (conda)
-h5netcdf (conda)
-mpich (conda)
-pyvista (conda)
 numpy (conda)
 matplotlib (conda)
 seaborn (conda)

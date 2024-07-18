@@ -89,47 +89,45 @@ def smoothImage(image):
     radius = 2
     return scipy.ndimage.gaussian_filter(image, sigma, radius=radius)
 
-"""Perform unwrapping on the wrapped input image
-Supported methods:
-- FSL PRELUDE (default)
-Needs complex image as input
-
-- Laplacian (currently faulty implementation)
-Reference: Hirsch et al., Magnetic Resonance Elastography
-Only phase image is necessary, both complex images or real images holding the phase information are supported
-Laplacian unwrapping is based on the idea that the gradients are similar in wrapped and unwrapped images. Therefore we can inverse the laplace operator to find a possible original image without wrapping.
-
-Parameters
-----------
-image : np.ndarray
-    2D wrapped image, either real or complex
-method : string
-    The method to use for unwrapping. Valid inputs are "fsl" and "laplacian" (laplacian has some errors though), default is "fsl"
-preprocessing : function
-    A function that is applied to the image before unwrapping (e.g. smoothing)
-
-Returns
--------
-np.ndarray
-    2D unwrapped image
-"""
 def spatialUnwrapping(image, method = "fsl", preprocessing = lambda x: x):
+    """Perform unwrapping on the wrapped input image
+    Supported methods:
+    - FSL PRELUDE (default)
+    Needs complex image as input
+
+    - Laplacian (currently faulty implementation)
+    Reference: Hirsch et al., Magnetic Resonance Elastography
+    Only phase image is necessary, both complex images or real images holding the phase information are supported
+    Laplacian unwrapping is based on the idea that the gradients are similar in wrapped and unwrapped images. Therefore we can inverse the laplace operator to find a possible original image without wrapping.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        2D wrapped image, either real or complex
+    method : string
+        The method to use for unwrapping. Valid inputs are "fsl" and "laplacian" (laplacian has some errors though), default is "fsl"
+    preprocessing : function
+        A function that is applied to the image before unwrapping (e.g. smoothing)
+
+    Returns
+    -------
+    np.ndarray
+        2D unwrapped image
+    """
     image = preprocessing(image)
     if method == "fsl":
         if not np.iscomplexobj(image):
             print("FSL unwrapping requires complex image as input, returning original image")
             return image
         # scale phase to 2pi range
-        print("imag", image.imag.min(), image.imag.max())
-        image.imag = image.imag * (2*np.pi) / (4*np.pi)
-        print("imag", image.imag.min(), image.imag.max())
-        print("real", image.real.min(), image.real.max())
-        plt.imshow(image.real)
-        plt.show()
-        plt.imshow(image.imag)
-        plt.show()
-        magn = utils.to_nibabel(image.real)
-        phase = utils.to_nibabel(image.imag)
+        mag = np.abs(image)
+        phase = np.angle(image)
+        # print("imag", phase.min(), phase.max())
+        image.imag = ((phase - phase.min()) / (phase.max() - phase.min())) * 2*np.pi
+        # print("imag", phase.min(), phase.max())
+        # print("real", mag.min(), mag.max())
+        magn = utils.to_nibabel(mag)
+        phase = utils.to_nibabel(phase)
         # fslpy is unfortunately just a wrapper to the FSL command line tools, so we need to save the image to disk and load it back
         wrappers.prelude(phase = phase, abs = magn, out = 'fsl_temp')
         unwrapped = nib.load('fsl_temp.nii.gz').get_fdata()
@@ -146,3 +144,16 @@ def spatialUnwrapping(image, method = "fsl", preprocessing = lambda x: x):
     else:
         print("Method not recognized, returning wrapped image")
         return image
+
+
+def frequencySelection(image, timeDimension):
+    plt.imshow(np.abs(image[4, 1, 4, 12, :, :]))
+    plt.show()
+    image = np.moveaxis(image, timeDimension, -1)
+    dims = np.array(image.shape)
+    print("before unwrapping", dims)
+    image = image.reshape((dims[:-1].prod(), dims[-1]))
+    for i in range(image.shape[0]):
+        image[i, :] = scipy.fft.fft(image[i, :])
+    print("after unwrapping", dims, dims[:-1])
+    return image[:, 1].reshape(dims[:-1])
