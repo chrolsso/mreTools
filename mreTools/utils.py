@@ -134,3 +134,44 @@ def strcat(s1,s2,s3="",s4="",s5="",s6="",s7="",s8=""):
     for el in l:
         s=s+el
     return s
+
+def storageLossToSws(complex_shear_modulus, rho):
+    '''Calculates a map of shear wave speed values from a map of complex shear modulus values and the material density rho
+    Returns sws as c = sqrt(2*|G*| / ρ * (1 + cos(φ(G*)))
+
+    Arguments:
+    ----------
+    complex_shear_modulus : complex np.ndarray (magnitude = storage modulus, phase = loss modulus)
+        complex shear modulus map
+    rho : float
+        material density in kg/m³
+    '''
+    return np.sqrt(2*np.abs(complex_shear_modulus) / rho * (1 + np.cos(np.angle(complex_shear_modulus))))
+
+def apparentStiffnessToSws(apparent_stiffness, rho):
+    '''Calculates a map of shear wave speed values from a map of apparent stiffness (as) values and the material density rho. The apparent stiffness is the stiffness value returned by LFE inversion.
+    Returns sws as c = sqrt(as / ρ)
+
+    Arguments:
+    ----------
+    apparent_stiffness : np.ndarray
+        apparent stiffness map
+    rho : float
+        material density in kg/m³
+    '''
+    return np.sqrt(apparent_stiffness / rho)
+
+def shearMagnitudeAngleToSws(G_star, phi, rho):
+    '''Calculates a map of shear wave speed values from a map of absolute shear modulus values, a map of shear angle values and the material density rho
+    Returns sws as c = sqrt((2*|G*|) / (ρ * (1 + cos(𝜑(G*)))))
+
+    Arguments:
+    ----------
+    G_star : np.ndarray
+        absolute shear modulus (magnitude) map
+    phi : np.ndarray
+        shear angle (phase) map
+    rho : float
+        material density in kg/m³
+    '''
+    return np.sqrt(2*G_star / rho * (1 + np.cos(phi)))
