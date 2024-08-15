@@ -3,6 +3,7 @@ import scipy
 import numpy as np
 import pydicom as dicom
 import nibabel as nib
+from functools import wraps
 
 def get_files_in_folder(folder_path):
     """Get a list of all files in a folder
@@ -175,3 +176,30 @@ def shearMagnitudeAngleToSws(G_star, phi, rho):
         material density in kg/m³
     '''
     return np.sqrt(2*G_star / rho * (1 + np.cos(phi)))
+
+def complex_operator(f):
+    """
+    Taken from Ragoza et al.
+    A decorator that applies a complex operator to a function.
+
+    This decorator checks if the input array `u` is of complex dtype. If it is,
+    the function `f` is applied separately to the real and imaginary parts of `u`,
+    and the results are combined to form a complex output. If `u` is not complex,
+    the function `f` is applied directly to `u`.
+
+    Args:
+        f (function): The function to apply the complex operator to.
+
+    Returns:
+        function: The decorated function.
+
+    """
+    @wraps(f)
+    def wrapper(u, x, *args, **kwargs):
+        if u.dtype.is_complex:
+            f_real = f(u.real, x, *args, **kwargs)
+            f_imag = f(u.imag, x, *args, **kwargs)
+            return f_real + 1j * f_imag
+        else:
+            return f(u, x, *args, **kwargs)
+    return wrapper
