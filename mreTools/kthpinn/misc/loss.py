@@ -63,18 +63,19 @@ def normalized_complex_mse_loss(y_true, y_pred, batch_dim=None):
     if batch_dim is None:
         real_loss = torch.mean(real_loss_no_mean)
         imag_loss = torch.mean(imag_loss_no_mean)
-
-    if num_of_dims == 1:    # there is a batch dim given but only one dimension exists. In this case, we do not take the mean
-        real_loss = real_loss_no_mean
-        imag_loss = imag_loss_no_mean
     else:
-        dims_to_reduce = list(range(num_of_dims))
-        dims_to_reduce.remove(batch_dim)
+        if num_of_dims == 1:    # there is a batch dim given but only one dimension exists. In this case, we do not take the mean
+            real_loss = real_loss_no_mean
+            imag_loss = imag_loss_no_mean
+        else:
+            dims_to_reduce = list(range(num_of_dims))
+            dims_to_reduce.remove(batch_dim)
 
-        real_loss = torch.mean(real_loss_no_mean, dim=dims_to_reduce)
-        imag_loss = torch.mean(imag_loss_no_mean, dim=dims_to_reduce)
+            real_loss = torch.mean(real_loss_no_mean, dim=dims_to_reduce)
+            imag_loss = torch.mean(imag_loss_no_mean, dim=dims_to_reduce)
     
     return real_loss / torch.max(y_true[...,0]) + imag_loss / torch.max(y_true[...,1])
+    # return real_loss + imag_loss
 
 def normalized_complex_mae_loss(y_true, y_pred):
     '''Computes the mae loss seperately for the first and second item of the first component. Then normalizes both results with the value range of the true image and returns the sum of both.
