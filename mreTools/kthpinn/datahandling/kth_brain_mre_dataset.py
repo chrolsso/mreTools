@@ -11,13 +11,19 @@ class KthBrainMreDatasetSingle(Dataset):
     ----------
     data_file : str
         Path to the xarray file (.nc) containing the data. The file should contain two 'parts' which are 'real' and 'imag'
+    mask_file : str
+        Path to the xarray file (.nc) containing the mask.
     verbose : bool
         If True, print debug information
     """
 
-    def __init__(self, data_file, verbose=False):
+    def __init__(self, data_file, mask_file, verbose=False):
         self.verbose = verbose
         self.image = np.array(self.load_xarray_file(data_file))
+        if not mask_file is None:
+            self.mask = np.array(self.load_xarray_file(mask_file))
+        else:
+            self.mask = np.ones_like(self.image, dtype=np.int16)
 
     def load_xarray_file(self, nc_file):
         """Load an xarray file and return the data as a numpy array. If the file contains a 'part' dimension, the real and imaginary parts are combined into a complex array."""
@@ -58,12 +64,14 @@ class KthBrainMreDatasetImage(KthBrainMreDatasetSingle):
     ----------
     data_file : str
         Path to the xarray file (.nc) containing the data. The file should contain two 'parts' which are 'real' and 'imag'
+    mask_file : str
+        Path to the xarray file (.nc) containing the mask.
     outputMagnitude : bool
         If True, __getitem__ will return the complex image as magnitude and phase, otherwise as real and imaginary parts
     """
 
-    def __init__(self, data_file, outputMagnitude = False, verbose=False):
-        super().__init__(data_file, verbose)
+    def __init__(self, data_file, mask_file, outputMagnitude = False, verbose=False):
+        super().__init__(data_file, mask_file, verbose)
         self.outputMagnitude = outputMagnitude
     
     def __len__(self):
