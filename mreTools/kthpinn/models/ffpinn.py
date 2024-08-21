@@ -39,7 +39,7 @@ class FfPinn(nn.Module):
         self.dropout_layer = torch.nn.Dropout(p=self.p_dropout)
 
         self.output_layer = torch.nn.Linear(num_input_nodes, n_output, device=device)
-        self.output_activation = torch.sin
+        self.output_activation = lambda x: x
 
         if self.weight_init_scheme == 'siren':
             self.init_weights_siren()
