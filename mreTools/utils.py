@@ -4,6 +4,7 @@ import numpy as np
 import pydicom as dicom
 import nibabel as nib
 from functools import wraps
+import torch
 
 def get_files_in_folder(folder_path):
     """Get a list of all files in a folder
@@ -203,3 +204,14 @@ def complex_operator(f):
         else:
             return f(u, x, *args, **kwargs)
     return wrapper
+
+def getCoordinateImage(x_len, y_len, device = torch.device('cuda')):
+    """Returns a matrix with shape (1, 2, x_len, y_len) where the first channel contains the x coordinate and the second channel contains the y coordinate of each pixel of the 2d plane spanned by x_len and y_len
+    """
+    x_range = torch.linspace(0, x_len - 1, x_len)
+    y_range = torch.linspace(0, y_len - 1, y_len)
+
+    y, x = torch.meshgrid(y_range, x_range)
+
+    coordinateImage = torch.stack([x, y], dim=0)
+    return coordinateImage[None, :, :, :].to(device)

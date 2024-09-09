@@ -10,6 +10,10 @@ def laplacian(u, x):
     return divergence(jacobian(u, x), x)
 
 def divergence(u, x):
+    # jac = torch.stack([jacobian(u[..., i, :], x) for i in range(u.shape[-2])], dim=1)
+    # components = jac.diagonal(dim1=-2, dim2=-1).sum(dim=-1)
+    # return components
+
     components = torch.zeros((x.shape[-2], u.shape[-2]))
     for i in range(u.shape[-2]):
         jac = jacobian(u[...,i,:], x)
@@ -20,6 +24,9 @@ def divergence(u, x):
     return components
 
 def jacobian(u, x):
+    # components = torch.stack([gradient(u[..., i:i+1], x) for i in range(u.shape[-1])], dim=2)
+    # return components
+
     components = torch.zeros((x.shape[-2], u.shape[-1], x.shape[-1]))
     for i in range(u.shape[-1]):
         components[:, i, :] = gradient(u[...,i:i+1], x)
@@ -74,12 +81,14 @@ def get_traction_force_func(equation='helmholtz'):
         - helmholtz
         - hetero
     '''
-
     if equation == 'helmholtz':
         def traction_force_func(x, u, mu, detach=False):
             laplace_u = laplacian(u, x)
             if detach:
                 laplace_u = laplace_u.detach()
+            else:
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                laplace_u = laplace_u.to(device)
             return mu * laplace_u
         return traction_force_func
     
