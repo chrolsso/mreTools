@@ -17,7 +17,7 @@ class FfPinn(nn.Module):
         assert n_output > 0
 
         super().__init__()
-        self.p_dropout = 0.01
+        self.p_dropout = 0.1
         self.num_hidden_nodes = 128
 
         self.n_input = n_input

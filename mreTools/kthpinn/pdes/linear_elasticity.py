@@ -14,7 +14,7 @@ def divergence(u, x):
     # components = jac.diagonal(dim1=-2, dim2=-1).sum(dim=-1)
     # return components
 
-    components = torch.zeros((x.shape[-2], u.shape[-2]))
+    components = torch.zeros((x.shape[-2], u.shape[-2]), dtype=torch.complex64)
     for i in range(u.shape[-2]):
         jac = jacobian(u[...,i,:], x)
         component = 0
@@ -27,7 +27,7 @@ def jacobian(u, x):
     # components = torch.stack([gradient(u[..., i:i+1], x) for i in range(u.shape[-1])], dim=2)
     # return components
 
-    components = torch.zeros((x.shape[-2], u.shape[-1], x.shape[-1]))
+    components = torch.zeros((x.shape[-2], u.shape[-1], x.shape[-1]), dtype=torch.complex64)
     for i in range(u.shape[-1]):
         components[:, i, :] = gradient(u[...,i:i+1], x)
     return components
@@ -89,7 +89,7 @@ def get_traction_force_func(equation='helmholtz'):
             else:
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                 laplace_u = laplace_u.to(device)
-            return mu * laplace_u
+            return mu * laplace_u.to(torch.complex64)
         return traction_force_func
     
     elif equation == 'hetero':
